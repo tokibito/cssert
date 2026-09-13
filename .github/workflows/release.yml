@@ -18,15 +18,28 @@ jobs:
           node-version: 22
           # no registry-url: setup-node would write a placeholder _authToken to
           # .npmrc, which makes npm send an invalid token instead of using OIDC
-      # provenance + trusted publishing need a recent npm
+      # trusted publishing + provenance need npm >= 11.5
       - run: npm install -g npm@latest
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
+      # Opens/updates the "Version Packages" PR while changesets are pending.
       - uses: changesets/action@v1
-        with:
-          publish: pnpm release
+        id: changesets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # provenance via OIDC trusted publishing; no NPM_TOKEN anywhere
+      # Publishing is done with the npm CLI (not through changesets, which would
+      # call pnpm publish) so OIDC trusted publishing is handled by npm itself.
+      - name: Publish to npm
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        env:
           NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "@cssert/cli@$version" version >/dev/null 2>&1; then
+            echo "@cssert/cli@$version is already published"
+            exit 0
+          fi
+          npm publish
+          pnpm changeset tag
+          git push --tags

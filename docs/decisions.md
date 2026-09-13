@@ -194,3 +194,14 @@ With `registry-url` set, `actions/setup-node` writes
 the variable with a placeholder. The publish then authenticates with that
 placeholder rather than the OIDC token and the registry answers 404. Trusted
 publishing needs no `.npmrc` entry at all, so the option is omitted.
+
+## D27. The release workflow publishes with the npm CLI, not through changesets
+
+`changesets/action`'s `publish` input runs `changeset publish`, which detects
+the pnpm workspace file and shells out to `pnpm publish`; in CI that returned
+404 from the registry under OIDC. The workflow therefore uses the action only
+for the "Version Packages" PR and publishes in its own step with the current
+npm CLI (`npm install -g npm@latest`), which implements trusted publishing and
+provenance directly. The step is idempotent: it exits early when the version
+in `package.json` already exists on the registry, and `changeset tag` still
+creates the `@cssert/cli@x.y.z` git tag.
