@@ -40,7 +40,13 @@ describe("audit", () => {
         occurrences: [{ path: "two.html", line: 1, column: 24 }],
       },
     ]);
-    expect(result.stats).toEqual({ documents: 2, stylesheets: 2, cssClasses: 4, htmlClasses: 5 });
+    expect(result.stats).toEqual({
+      documents: 2,
+      stylesheets: 2,
+      cssClasses: 4,
+      htmlClasses: 5,
+      documentsWithDynamic: 1,
+    });
     expect(result.warnings).toEqual([]);
   });
 

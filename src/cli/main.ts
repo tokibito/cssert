@@ -2,7 +2,7 @@ import { baselineCommand } from "./baseline.js";
 import { budgetCommand } from "./budget.js";
 import { checkCommand } from "./check.js";
 import { type CliContext, CliError, defaultContext, EXIT, type ExitCode } from "./context.js";
-import { readVersion } from "./version.js";
+import { PACKAGE_NAME, versionLine } from "./version.js";
 
 export const USAGE = `Usage: cssert <command> [options]
 
@@ -12,6 +12,8 @@ Commands:
   budget     Guard against a stylesheet that shrank unexpectedly
 
 Run "cssert <command> --help" for command options.
+
+cssert is the binary of the ${PACKAGE_NAME} package.
 `;
 
 type Command = (argv: string[], ctx: CliContext) => Promise<ExitCode>;
@@ -36,7 +38,7 @@ export async function runCli(
     return EXIT.ok;
   }
   if (command === "-v" || command === "--version") {
-    ctx.stdout.write(`${readVersion()}\n`);
+    ctx.stdout.write(`${versionLine()}\n`);
     return EXIT.ok;
   }
   const handler = COMMANDS[command];

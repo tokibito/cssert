@@ -4,6 +4,7 @@ export const SARIF_RULES = {
   missing: "cssert/missing-class",
   dynamic: "cssert/dynamic-class",
   parse: "cssert/parse-warning",
+  coverage: "cssert/input-coverage",
 } as const;
 
 interface SarifLocation {
@@ -80,6 +81,13 @@ export function toSarif(report: Report, opts: ReportOptions = {}): SarifLog {
       results.push({ ...base, locations: [location(occ.path, occ.line, occ.column)] });
     }
   }
+  for (const error of report.errors ?? []) {
+    results.push({
+      ruleId: SARIF_RULES.coverage,
+      level: "error",
+      message: { text: error },
+    });
+  }
   for (const w of report.warnings) {
     const result: SarifResult = {
       ruleId: SARIF_RULES.parse,
@@ -115,6 +123,16 @@ export function toSarif(report: Report, opts: ReportOptions = {}): SarifLog {
         },
         helpUri: `${HOMEPAGE}#readme`,
         defaultConfiguration: { level: "warning" },
+      },
+      {
+        id: SARIF_RULES.coverage,
+        name: "InputCoverage",
+        shortDescription: { text: "Fewer inputs were checked than required" },
+        fullDescription: {
+          text: "The run scanned fewer documents or stylesheets than --min-documents/--min-stylesheets requires. A check over an empty or truncated input set passes without proving anything.",
+        },
+        helpUri: `${HOMEPAGE}#readme`,
+        defaultConfiguration: { level: "error" },
       },
       {
         id: SARIF_RULES.parse,

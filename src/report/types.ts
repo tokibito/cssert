@@ -8,6 +8,12 @@ export interface Report {
   stats: AuditStats;
   /** Present when a baseline file was applied. */
   baseline?: { path: string; suppressed: number };
+  /**
+   * Run-level failures that are not tied to a class, such as "fewer documents
+   * were scanned than `--min-documents` requires". Reported by every format
+   * and counted towards the exit code.
+   */
+  errors?: string[];
 }
 
 export type ReportFormat = "human" | "json" | "github" | "sarif";
@@ -17,6 +23,12 @@ export interface ReportOptions {
   color?: boolean;
   /** Tool version to embed (SARIF). */
   version?: string;
+  /**
+   * Emit one annotation per occurrence instead of one per class (github).
+   * Default false: GitHub caps how many annotations it displays per run, and
+   * one noisy class would otherwise hide every other finding.
+   */
+  annotateOccurrences?: boolean;
 }
 
 /** Count findings by kind. */

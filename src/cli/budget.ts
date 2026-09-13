@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   type BudgetComparison,
@@ -14,6 +14,7 @@ import {
 import { findConfigFile, loadConfigFile } from "./config.js";
 import { type CliContext, CliError, EXIT, type ExitCode } from "./context.js";
 import { loadFiles, writeOutput } from "./files.js";
+import { resolveRoots } from "./roots.js";
 
 export const DEFAULT_SNAPSHOT_PATH = ".cssert/budget.json";
 export const DEFAULT_MAX_DROP: MaxDrop = { percent: 10 };
@@ -26,11 +27,15 @@ the last snapshot. Catches a scan-path misconfiguration that empties the build.
 Options:
   --css <glob>          Built CSS files (repeatable, comma-separated allowed)
   --snapshot <path>     Snapshot file (default: ${DEFAULT_SNAPSHOT_PATH})
+  --root <dir>          Base directory for every relative path
   --max-drop <n|n%>     Allowed drop in classes/gzip size (default: 10%)
   --update              Write the current measurement as the new snapshot
   --config <path>       Config file (default: cssert.config.{ts,js,mjs,json} in cwd)
   --format <fmt>        human | json (default: human)
   -h, --help            Show this help
+
+Paths written in a config file are relative to that file; paths passed as
+flags are relative to the working directory.
 
 When no snapshot exists one is created and the command exits 0.
 Exit codes: 0 within budget, 1 over budget, 2 usage/config error, 3 internal error.
@@ -39,6 +44,7 @@ Exit codes: 0 within budget, 1 over budget, 2 usage/config error, 3 internal err
 interface BudgetArgs {
   css?: string[];
   snapshot?: string;
+  root?: string;
   "max-drop"?: string;
   update?: boolean;
   config?: string;
@@ -56,6 +62,7 @@ export async function budgetCommand(argv: string[], ctx: CliContext): Promise<Ex
       options: {
         css: { type: "string", multiple: true },
         snapshot: { type: "string" },
+        root: { type: "string" },
         "max-drop": { type: "string" },
         update: { type: "boolean" },
         config: { type: "string" },
@@ -76,12 +83,22 @@ export async function budgetCommand(argv: string[], ctx: CliContext): Promise<Ex
 
   const configPath = values.config ?? findConfigFile(ctx.cwd);
   const config = configPath ? await loadConfigFile(configPath, ctx.cwd) : {};
+  const roots = resolveRoots(ctx.cwd, configPath, config, values.root);
   const css = (values.css ?? [])
     .flatMap((v) => v.split(","))
     .map((v) => v.trim())
     .filter((v) => v !== "");
-  const patterns = css.length > 0 ? css : (config.css ?? []);
-  const snapshotPath = values.snapshot ?? config.budget?.snapshot ?? DEFAULT_SNAPSHOT_PATH;
+  const cssSet =
+    css.length > 0
+      ? { patterns: css, base: roots.flag }
+      : { patterns: config.css ?? [], base: roots.config };
+  const snapshot =
+    values.snapshot !== undefined
+      ? { path: values.snapshot, base: roots.flag }
+      : config.budget?.snapshot !== undefined
+        ? { path: config.budget.snapshot, base: roots.config }
+        : { path: DEFAULT_SNAPSHOT_PATH, base: roots.config };
+  const snapshotPath = snapshot.path;
   const maxDropText = values["max-drop"] ?? config.budget?.maxDrop;
   let maxDrop: MaxDrop = DEFAULT_MAX_DROP;
   if (maxDropText !== undefined) {
@@ -91,13 +108,13 @@ export async function budgetCommand(argv: string[], ctx: CliContext): Promise<Ex
     maxDrop = parsed;
   }
 
-  const stylesheets = await loadFiles(patterns, ctx.cwd, "css");
+  const stylesheets = await loadFiles(cssSet, "css");
   const current = measureStylesheets(stylesheets.map((f) => ({ path: f.path, css: f.content })));
-  const previous = readSnapshotFile(snapshotPath, ctx.cwd);
+  const previous = readSnapshotFile(snapshotPath, snapshot.base);
   const json = values.format === "json";
 
   if (!previous) {
-    writeOutput(snapshotPath, ctx.cwd, serializeBudgetSnapshot(current));
+    writeOutput(snapshotPath, snapshot.base, serializeBudgetSnapshot(current));
     if (json) {
       ctx.stdout.write(
         `${JSON.stringify({ version: 1, tool: "cssert", created: true, snapshot: current }, null, 2)}\n`,
@@ -112,7 +129,7 @@ export async function budgetCommand(argv: string[], ctx: CliContext): Promise<Ex
 
   const comparison = compareBudget(previous, current, maxDrop);
   if (values.update) {
-    writeOutput(snapshotPath, ctx.cwd, serializeBudgetSnapshot(current));
+    writeOutput(snapshotPath, snapshot.base, serializeBudgetSnapshot(current));
   }
   if (json) {
     ctx.stdout.write(
@@ -136,8 +153,8 @@ export async function budgetCommand(argv: string[], ctx: CliContext): Promise<Ex
   return values.update || comparison.ok ? EXIT.ok : EXIT.violations;
 }
 
-export function readSnapshotFile(path: string, cwd: string): BudgetSnapshot | undefined {
-  const full = resolve(cwd, path);
+export function readSnapshotFile(path: string, base: string): BudgetSnapshot | undefined {
+  const full = isAbsolute(path) ? path : resolve(base, path);
   if (!existsSync(full)) return undefined;
   let json: unknown;
   try {
