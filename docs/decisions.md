@@ -186,3 +186,11 @@ by the spec fails at publish time. The release workflow sets
 `NPM_CONFIG_PROVENANCE=true` instead, which npm reads for every publish that
 changesets runs. Trusted publishing (OIDC) supplies the identity; no
 `NPM_TOKEN` exists in the repository.
+
+## D26. `setup-node` runs without `registry-url` in the release workflow
+
+With `registry-url` set, `actions/setup-node` writes
+`//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` to `.npmrc` and fills
+the variable with a placeholder. The publish then authenticates with that
+placeholder rather than the OIDC token and the registry answers 404. Trusted
+publishing needs no `.npmrc` entry at all, so the option is omitted.

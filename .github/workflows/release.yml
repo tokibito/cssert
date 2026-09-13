@@ -16,7 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
+          # no registry-url: setup-node would write a placeholder _authToken to
+          # .npmrc, which makes npm send an invalid token instead of using OIDC
       # provenance + trusted publishing need a recent npm
       - run: npm install -g npm@latest
       - run: pnpm install --frozen-lockfile
