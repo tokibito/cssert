@@ -25,12 +25,64 @@ cssert takes two public artefacts, the built CSS and the (ideally rendered)
 HTML, and reports the difference. It has no dependency on any build tool,
 framework internals or browser.
 
-## Current scope (0.0.1)
+## Quick start
 
-The core parser and query model are available:
+```sh
+npm install --save-dev cssert
+npx cssert check --css "dist/**/*.css" --html "build/rendered/**/*.html"
+```
+
+```
+  ✗ lg:my-10          templates/pricing.html:42:18
+                      templates/pricing.html:88:10
+  ✗ bg-brand-500      templates/base.html:12:6
+  ⚠ text-{{ color }}  templates/card.html:7:22   (dynamic class construction suspected)
+
+  2 missing, 1 dynamic-suspect  ·  scanned 128 document(s) / 3 stylesheet(s)
+```
+
+Exit codes: `0` no violations, `1` violations, `2` usage or config error,
+`3` internal error. `--format json` emits a machine-readable report;
+`--output <path>` writes it to a file.
+
+### Configuration
+
+`cssert.config.ts` (or `.js`, `.mjs`, `.json`) in the working directory:
 
 ```ts
-import { loadStylesheet } from "cssert";
+import { defineConfig } from "cssert";
+
+export default defineConfig({
+  css: ["dist/**/*.css"],
+  html: ["build/rendered/**/*.html", "templates/**/*.html"],
+  ignore: [/^js-/, "legacy-banner"],
+  allow: [],
+  attributes: ["class", ":class"],
+  baseline: ".cssert/baseline.json",
+});
+```
+
+Command-line flags override the config file. In JSON configs, strings of the
+form `"/^js-/"` are treated as regular expressions.
+
+### Dynamic class names
+
+Tokens containing template syntax (`{{ }}`, `{% %}`, `${ }`, `<% %>`) cannot
+be checked and are reported separately as *dynamic-suspect*. They do not fail
+the check unless you pass `--fail-on-dynamic`. The best fix is to render your
+templates and check the rendered HTML instead (see recipes below); the second
+best is to make the class list static.
+
+## Library usage
+
+```ts
+import { audit, loadStylesheet } from "cssert";
+
+const result = audit({
+  stylesheets: [{ path: "dist/app.css", css }],
+  documents: [{ path: "index.html", html }],
+});
+result.findings; // [{ className, kind: "missing" | "dynamic-suspect", occurrences }]
 
 const sheet = loadStylesheet(css);
 sheet.hasClass("md:p-4");            // subject presence
@@ -38,8 +90,8 @@ sheet.match("hover:underline");      // matches with pseudo / conditions / layer
 sheet.resolveVar("--color-red-500"); // follows var() chains, detects cycles
 ```
 
-HTML extraction, the `cssert check` CLI, baselines and the assertion helpers
-follow in the next releases.
+Everything in the core is pure: no I/O, no exceptions. Problems while parsing
+are returned as warnings.
 
 ## Name
 

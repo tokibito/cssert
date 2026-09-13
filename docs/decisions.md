@@ -83,3 +83,41 @@ so `typescript` is pinned to `^5.9`.
 `package.json` in the spec lists a `bin` and a `./assert` export. Publishing
 them before the files exist would ship a broken `bin` link, so they are added
 in the milestones that implement them (M3 and M5).
+
+## D12. CLI output is English
+
+The spec's sample output annotates dynamic tokens in Japanese. The package is
+published to a global registry, so all CLI text is English
+(`(dynamic class construction suspected)`). Message shape follows the sample.
+
+## D13. `dynamic-suspect` findings do not fail the build by default
+
+Only `missing` findings produce exit code 1. Dynamic tokens cannot be fixed by
+adding a class to the CSS; they are hints about template code. `--fail-on-dynamic`
+(or `failOnDynamic` in the config) opts into failing on them.
+
+## D14. `/pattern/flags` strings are regular expressions everywhere
+
+`ignore` and `allow` accept `RegExp` objects in TS/JS configs, but JSON configs
+and command-line flags can only carry strings. A string that looks like
+`/…/flags` is converted with `new RegExp`; anything else matches exactly.
+
+## D15. Argument parsing uses `node:util` `parseArgs`
+
+No CLI framework dependency. List flags (`--css`, `--html`, `--ignore`, …) are
+repeatable and accept comma-separated values, which covers the `<glob...>` in
+the spec without a variadic parser.
+
+## D16. TypeScript config files load natively, with `jiti` as an optional fallback
+
+`cssert.config.ts` is imported directly; Node 22.18+/24+ strip types out of
+the box. On older runtimes the loader tries `jiti` if the project has it
+installed and otherwise fails with exit 2 and a message that suggests
+`.mjs`/`.json`. cssert does not depend on a TypeScript loader itself, to keep
+CI installs small.
+
+## D17. Empty glob matches are usage errors
+
+`--css`/`--html` patterns that match nothing exit with code 2 instead of
+reporting "no missing classes". A silently empty check is exactly the kind of
+false reassurance principle 5 forbids.
