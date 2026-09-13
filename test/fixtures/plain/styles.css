@@ -1,0 +1,42 @@
+/* Hand-written CSS with CSS Modules style hashed class names. */
+:root {
+  --brand: #0f62fe;
+  --brand-hover: color-mix(in oklab, var(--brand), black 10%);
+  --self: var(--self);
+}
+
+.button_a1B2c3 {
+  background: var(--brand);
+  color: white;
+  padding: 0.5rem 1rem;
+}
+
+.button_a1B2c3:hover,
+.button_a1B2c3:focus-visible {
+  background: var(--brand-hover);
+}
+
+.card_x9Y8z7 > .title_q1W2e3 {
+  font-weight: 700;
+}
+
+@media (min-width: 48rem) {
+  .card_x9Y8z7 {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+@supports (display: grid) {
+  .grid_fallback {
+    display: grid;
+  }
+}
+
+.legacy-banner {
+  color: red !important;
+}
+
+.\31 0-col { width: 10%; }
+.icon\.svg { display: inline; }
+.emoji\1F600 { content: "\1F600"; }

@@ -1,0 +1,65 @@
+{
+  "name": "cssert",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Contract testing for built CSS. Detect utility classes that went missing from your build output.",
+  "keywords": [
+    "css",
+    "tailwind",
+    "testing",
+    "assert",
+    "postcss",
+    "build",
+    "ci"
+  ],
+  "license": "MIT",
+  "author": "Shinya Okano",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokibito/cssert.git"
+  },
+  "homepage": "https://github.com/tokibito/cssert#readme",
+  "bugs": {
+    "url": "https://github.com/tokibito/cssert/issues"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "release": "changeset publish --provenance"
+  },
+  "dependencies": {
+    "postcss": "^8.5.28",
+    "postcss-safe-parser": "^7.1.0",
+    "postcss-selector-parser": "^7.1.6",
+    "parse5": "^8.0.1",
+    "tinyglobby": "^0.2.17"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@changesets/cli": "^3.0.2",
+    "@changesets/changelog-github": "^1.0.1",
+    "@types/node": "^22.20.2",
+    "@vitest/coverage-v8": "^4.1.11",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
