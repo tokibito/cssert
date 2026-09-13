@@ -144,3 +144,27 @@ and raw byte size is reported but never enforced (minifier changes would make
 it noisy). `--max-drop` accepts `10%` (both metrics) or `25` (absolute class
 count). `--update` records the new measurement and exits 0 even when the drop
 exceeded the threshold, because the operator is explicitly accepting it.
+
+## D21. `expectClass(...).toExist()` means "defined anywhere"; `asSubject()` narrows
+
+Following D7, the default expectation considers every selector role, so
+`expectClass(sheet, "group").toExist()` passes for Tailwind output where
+`group` only appears inside `:where(.group)`. `asSubject()` switches to the
+spec's subject-only semantics. `toResolveTo` picks the winner with
+`pickWinner` over the considered matches; when a class has declarations under
+several conditions, narrow with `under()` first.
+
+## D22. CI formats emit one entry per occurrence
+
+GitHub workflow commands and SARIF results are emitted per occurrence, not
+per class, so every usage is annotated in the pull request. A finding without
+occurrences (possible when a baseline or ignore list is edited by hand) is
+still emitted once without a location. SARIF carries the class name as a
+partial fingerprint so viewers can group alerts.
+
+## D23. Recipes render first, then check
+
+The Django/Rails/Laravel recipes all dump rendered HTML via the framework's
+own request machinery rather than checking templates. Rendering resolves
+`{% if %}`/`<%= %>` inside class attributes, which is exactly what the
+dynamic-suspect classification cannot verify.

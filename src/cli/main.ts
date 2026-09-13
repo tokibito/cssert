@@ -2,6 +2,7 @@ import { baselineCommand } from "./baseline.js";
 import { budgetCommand } from "./budget.js";
 import { checkCommand } from "./check.js";
 import { type CliContext, CliError, defaultContext, EXIT, type ExitCode } from "./context.js";
+import { readVersion } from "./version.js";
 
 export const USAGE = `Usage: cssert <command> [options]
 
@@ -35,7 +36,7 @@ export async function runCli(
     return EXIT.ok;
   }
   if (command === "-v" || command === "--version") {
-    ctx.stdout.write(`${await readVersion()}\n`);
+    ctx.stdout.write(`${readVersion()}\n`);
     return EXIT.ok;
   }
   const handler = COMMANDS[command];
@@ -53,16 +54,5 @@ export async function runCli(
     const err = error as Error;
     ctx.stderr.write(`cssert: internal error: ${err?.stack ?? String(error)}\n`);
     return EXIT.internal;
-  }
-}
-
-async function readVersion(): Promise<string> {
-  try {
-    const { readFileSync } = await import("node:fs");
-    const url = new URL("../../package.json", import.meta.url);
-    const pkg = JSON.parse(readFileSync(url, "utf8")) as { version?: string };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
   }
 }

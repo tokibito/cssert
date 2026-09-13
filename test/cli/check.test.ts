@@ -302,3 +302,29 @@ describe("built CLI binary", () => {
     }
   });
 });
+
+describe("cssert check CI formats", () => {
+  it("emits github annotations and sarif", async () => {
+    const sb = sandbox();
+    sb.write("dist/app.css", fixture("tailwind-v4.css"));
+    sb.write("templates/bad.html", HTML_BAD);
+    const base = ["check", "--css", "dist/app.css", "--html", "templates/bad.html"];
+
+    const gh = await sb.run([...base, "--format", "github"]);
+    expect(gh.code).toBe(1);
+    expect(gh.stdout).toContain(
+      '::error file=templates/bad.html,line=1,col=40,title=cssert%3A missing class::Class "nope"',
+    );
+    expect(gh.stdout).toContain("::warning file=templates/bad.html,line=2,col=22");
+
+    const sarif = await sb.run([...base, "--format", "sarif"]);
+    expect(sarif.code).toBe(1);
+    const log = JSON.parse(sarif.stdout);
+    expect(log.version).toBe("2.1.0");
+    expect(log.runs[0].tool.driver.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(log.runs[0].results.map((r: { ruleId: string }) => r.ruleId)).toEqual([
+      "cssert/missing-class",
+      "cssert/dynamic-class",
+    ]);
+  });
+});

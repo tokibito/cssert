@@ -3,13 +3,16 @@ import { applyBaseline } from "../audit/baseline.js";
 import { audit } from "../audit/derive.js";
 import type { CssertConfig } from "../config.js";
 import { toPattern } from "../config.js";
+import { formatGithub } from "../report/github.js";
 import { formatHuman } from "../report/human.js";
 import { formatJson } from "../report/json.js";
+import { formatSarif } from "../report/sarif.js";
 import type { Report, ReportFormat } from "../report/types.js";
 import { DEFAULT_BASELINE_PATH, readBaselineFile } from "./baseline.js";
 import { findConfigFile, loadConfigFile, parseFormat } from "./config.js";
 import { type CliContext, CliError, EXIT, type ExitCode } from "./context.js";
 import { loadFiles, writeOutput } from "./files.js";
+import { readVersion } from "./version.js";
 
 export const CHECK_USAGE = `Usage: cssert check [options]
 
@@ -199,8 +202,12 @@ export function renderReport(report: Report, format: ReportFormat, color: boolea
       return formatHuman(report, { color });
     case "json":
       return formatJson(report);
+    case "github":
+      return formatGithub(report);
+    case "sarif":
+      return formatSarif(report, { version: readVersion() });
     default:
-      throw new CliError(`Format "${format}" is not available yet.`);
+      throw new CliError(`Unknown format "${String(format)}".`);
   }
 }
 

@@ -15,6 +15,8 @@ export type ReportFormat = "human" | "json" | "github" | "sarif";
 export interface ReportOptions {
   /** Emit ANSI colours (human format only). */
   color?: boolean;
+  /** Tool version to embed (SARIF). */
+  version?: string;
 }
 
 /** Count findings by kind. */

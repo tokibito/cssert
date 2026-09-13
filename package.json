@@ -27,6 +27,7 @@
   },
   "exports": {
     ".": "./dist/index.js",
+    "./assert": "./dist/assert/index.js",
     "./package.json": "./package.json"
   },
   "files": [
