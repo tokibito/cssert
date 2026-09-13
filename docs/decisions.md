@@ -178,3 +178,11 @@ check and the `@cssert` organisation is already owned, so the package lives at
 `@cssert/cli` with `publishConfig.access: public`. The binary, the config
 file name and all report output keep the name `cssert`. Future sub-packages
 (`@cssert/vitest`, …) sit next to it as planned.
+
+## D25. Provenance is enabled through `NPM_CONFIG_PROVENANCE`, not a CLI flag
+
+`changeset publish` (v3) has no `--provenance` option, so the script suggested
+by the spec fails at publish time. The release workflow sets
+`NPM_CONFIG_PROVENANCE=true` instead, which npm reads for every publish that
+changesets runs. Trusted publishing (OIDC) supplies the identity; no
+`NPM_TOKEN` exists in the repository.
