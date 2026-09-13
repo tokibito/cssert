@@ -50,6 +50,10 @@ export function formatHuman(report: Report, opts: ReportOptions = {}): string {
     }
   }
 
+  for (const error of report.errors ?? []) {
+    lines.push(`  ${paint("✗", ANSI.red)} ${error}`);
+  }
+
   if (report.warnings.length > 0) {
     if (lines.length > 0) lines.push("");
     lines.push(`  ${paint(`${report.warnings.length} parse warning(s):`, ANSI.yellow)}`);
@@ -65,12 +69,25 @@ export function formatHuman(report: Report, opts: ReportOptions = {}): string {
     report.baseline && report.baseline.suppressed > 0
       ? `  ·  ${report.baseline.suppressed} suppressed by baseline`
       : "";
-  if (report.findings.length === 0) {
-    lines.push(`  ${paint("✓", ANSI.green)} no missing classes  ·  ${scanned}${baseline}`);
+  // What the run could not verify is part of the result, not a footnote:
+  // a document with unresolved class expressions was only partly checked.
+  const unresolved =
+    report.stats.documentsWithDynamic > 0
+      ? `  ·  ${paint(
+          `${report.stats.documentsWithDynamic} document(s) still contain unresolved class expressions`,
+          ANSI.yellow,
+        )}`
+      : "";
+  if (report.findings.length === 0 && (report.errors ?? []).length === 0) {
+    lines.push(
+      `  ${paint("✓", ANSI.green)} no missing classes  ·  ${scanned}${unresolved}${baseline}`,
+    );
+  } else if (report.findings.length === 0) {
+    lines.push(`  ${paint("input coverage check failed", ANSI.red)}  ·  ${scanned}${baseline}`);
   } else {
     const summary = `${counts.missing} missing, ${counts.dynamicSuspect} dynamic-suspect`;
     lines.push(
-      `  ${paint(summary, counts.missing > 0 ? ANSI.red : ANSI.yellow)}  ·  ${scanned}${baseline}`,
+      `  ${paint(summary, counts.missing > 0 ? ANSI.red : ANSI.yellow)}  ·  ${scanned}${unresolved}${baseline}`,
     );
   }
   return `${lines.join("\n")}\n`;

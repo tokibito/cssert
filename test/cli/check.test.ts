@@ -19,10 +19,11 @@ describe("cssert (top level)", () => {
     expect(help.stdout).toContain("Usage: cssert <command>");
   });
 
-  it("prints the version", async () => {
+  it("prints the version with the package name", async () => {
     const res = await sb.run(["--version"]);
     expect(res.code).toBe(0);
-    expect(res.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+    expect(res.stdout.trim()).toMatch(/^cssert \d+\.\d+\.\d+ \(@cssert\/cli\)$/);
+    expect((await sb.run(["--help"])).stdout).toContain("@cssert/cli");
   });
 
   it("exits 2 for unknown commands", async () => {
@@ -76,7 +77,8 @@ describe("cssert check", () => {
         "  ✗ nope              templates/bad.html:1:40",
         "  ⚠ text-{{ color }}  templates/bad.html:2:22   (dynamic class construction suspected)",
         "",
-        "  1 missing, 1 dynamic-suspect  ·  scanned 1 document(s) / 1 stylesheet(s)",
+        "  1 missing, 1 dynamic-suspect  ·  scanned 1 document(s) / 1 stylesheet(s)" +
+          "  ·  1 document(s) still contain unresolved class expressions",
         "",
       ].join("\n"),
     );
@@ -111,7 +113,9 @@ describe("cssert check", () => {
       className: "nope",
       kind: "missing",
       occurrences: [{ path: "templates/bad.html", line: 1, column: 40 }],
+      sources: ["templates/bad.html"],
     });
+    expect(json.errors).toEqual([]);
   });
 
   it("writes to --output and reports the location on stderr", async () => {
@@ -223,7 +227,7 @@ describe("cssert check with config files", () => {
   it("accepts --config pointing at a specific file", async () => {
     sb.write(
       "conf/custom.json",
-      JSON.stringify({ css: ["dist/*.css"], html: ["templates/*.html"] }),
+      JSON.stringify({ css: ["../dist/*.css"], html: ["../templates/*.html"] }),
     );
     expect((await sb.run(["check", "--config", "conf/custom.json"])).code).toBe(1);
     expect((await sb.run(["check", "--config", "conf/missing.json"])).code).toBe(2);

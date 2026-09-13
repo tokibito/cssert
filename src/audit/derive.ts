@@ -21,7 +21,13 @@ export const DEFAULT_IGNORE: readonly RegExp[] = [
 
 export interface AuditInput {
   stylesheets: { path: string; css: string }[];
-  documents: { path: string; html: string }[];
+  /**
+   * Documents to check. `source` labels where the document came from (the
+   * input glob that matched it, say `templates/**\/*.html`); findings carry
+   * the distinct labels of the documents they occur in, which separates
+   * "only appears in unrendered templates" from "appears in rendered output".
+   */
+  documents: { path: string; html: string; source?: string }[];
   /** Additional classes/patterns to skip. Appended to {@link DEFAULT_IGNORE}. */
   ignore?: (string | RegExp)[];
   /** Classes/patterns that are not reported even when absent from the CSS. */
@@ -46,6 +52,11 @@ export interface Finding {
    */
   kind: "missing" | "dynamic-suspect";
   occurrences: FindingOccurrence[];
+  /**
+   * Distinct `source` labels of the documents this finding occurs in, sorted.
+   * Present only when the caller labelled its documents.
+   */
+  sources?: string[];
 }
 
 export interface AuditStats {
@@ -55,6 +66,11 @@ export interface AuditStats {
   cssClasses: number;
   /** Distinct literal classes used across all documents (after ignore). */
   htmlClasses: number;
+  /**
+   * Documents that still contain at least one unresolved class expression.
+   * A green run over these files proves less than over fully rendered ones.
+   */
+  documentsWithDynamic: number;
 }
 
 export interface AuditResult {
@@ -93,9 +109,10 @@ export function audit(input: AuditInput): AuditResult {
     warnings.push(...model.warnings);
   }
 
-  const missing = new Map<string, FindingOccurrence[]>();
-  const dynamic = new Map<string, FindingOccurrence[]>();
+  const missing = new Map<string, Accumulator>();
+  const dynamic = new Map<string, Accumulator>();
   const used = new Set<string>();
+  let documentsWithDynamic = 0;
 
   for (const doc of input.documents) {
     const extraction = extractClasses(doc.html, {
@@ -105,24 +122,17 @@ export function audit(input: AuditInput): AuditResult {
     for (const [cls, occurrences] of extraction.classes) {
       used.add(cls);
       if (defined.has(cls) || matchesAny(cls, allow)) continue;
-      append(missing, cls, doc.path, occurrences);
+      append(missing, cls, doc, occurrences);
     }
+    if (extraction.dynamic.size > 0) documentsWithDynamic++;
     for (const [token, occurrences] of extraction.dynamic) {
-      append(dynamic, token, doc.path, occurrences);
+      append(dynamic, token, doc, occurrences);
     }
   }
 
   const findings: Finding[] = [
-    ...[...missing].map(([className, occurrences]) => ({
-      className,
-      kind: "missing" as const,
-      occurrences,
-    })),
-    ...[...dynamic].map(([className, occurrences]) => ({
-      className,
-      kind: "dynamic-suspect" as const,
-      occurrences,
-    })),
+    ...[...missing].map(([className, acc]) => toFinding(className, "missing", acc)),
+    ...[...dynamic].map(([className, acc]) => toFinding(className, "dynamic-suspect", acc)),
   ];
 
   return {
@@ -133,21 +143,37 @@ export function audit(input: AuditInput): AuditResult {
       stylesheets: input.stylesheets.length,
       cssClasses: defined.size,
       htmlClasses: used.size,
+      documentsWithDynamic,
     },
   };
 }
 
+interface Accumulator {
+  occurrences: FindingOccurrence[];
+  sources: Set<string>;
+}
+
 function append(
-  target: Map<string, FindingOccurrence[]>,
+  target: Map<string, Accumulator>,
   key: string,
-  path: string,
+  doc: { path: string; source?: string },
   occurrences: { line: number; column: number }[],
 ): void {
-  const list = target.get(key) ?? [];
+  const acc = target.get(key) ?? { occurrences: [], sources: new Set<string>() };
+  const { path } = doc;
   for (const o of occurrences) {
-    if (!list.some((e) => e.path === path && e.line === o.line && e.column === o.column)) {
-      list.push({ path, line: o.line, column: o.column });
+    if (
+      !acc.occurrences.some((e) => e.path === path && e.line === o.line && e.column === o.column)
+    ) {
+      acc.occurrences.push({ path, line: o.line, column: o.column });
     }
   }
-  target.set(key, list);
+  if (doc.source !== undefined) acc.sources.add(doc.source);
+  target.set(key, acc);
+}
+
+function toFinding(className: string, kind: Finding["kind"], acc: Accumulator): Finding {
+  const finding: Finding = { className, kind, occurrences: acc.occurrences };
+  if (acc.sources.size > 0) finding.sources = [...acc.sources].sort();
+  return finding;
 }

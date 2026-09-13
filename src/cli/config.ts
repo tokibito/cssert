@@ -104,6 +104,21 @@ function normalizeConfig(raw: unknown, display: string): CssertConfig {
     return v;
   };
 
+  const str = (key: string): string | undefined => {
+    const v = input[key];
+    if (v === undefined) return undefined;
+    if (typeof v !== "string") throw new CliError(`Config ${display}: "${key}" must be a string.`);
+    return v;
+  };
+  const integer = (key: string): number | undefined => {
+    const v = input[key];
+    if (v === undefined) return undefined;
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+      throw new CliError(`Config ${display}: "${key}" must be a non-negative integer.`);
+    }
+    return v;
+  };
+
   const css = list("css");
   if (css) config.css = css;
   const html = list("html");
@@ -114,19 +129,36 @@ function normalizeConfig(raw: unknown, display: string): CssertConfig {
   if (ignore) config.ignore = ignore;
   const allow = patterns("allow");
   if (allow) config.allow = allow;
+  const hooks = patterns("hooks");
+  if (hooks) config.hooks = hooks;
   const useDefaultIgnore = bool("useDefaultIgnore");
   if (useDefaultIgnore !== undefined) config.useDefaultIgnore = useDefaultIgnore;
   const strictParse = bool("strictParse");
   if (strictParse !== undefined) config.strictParse = strictParse;
   const failOnDynamic = bool("failOnDynamic");
   if (failOnDynamic !== undefined) config.failOnDynamic = failOnDynamic;
+  const requireBaseline = bool("requireBaseline");
+  if (requireBaseline !== undefined) config.requireBaseline = requireBaseline;
+  const annotateOccurrences = bool("annotateOccurrences");
+  if (annotateOccurrences !== undefined) config.annotateOccurrences = annotateOccurrences;
 
-  if (input.baseline !== undefined) {
-    if (typeof input.baseline !== "string") {
-      throw new CliError(`Config ${display}: "baseline" must be a string.`);
+  const root = str("root");
+  if (root !== undefined) config.root = root;
+  if (input.resolveFrom !== undefined) {
+    if (input.resolveFrom !== "config" && input.resolveFrom !== "cwd") {
+      throw new CliError(
+        `Config ${display}: "resolveFrom" must be "config" or "cwd" (got ${String(input.resolveFrom)}).`,
+      );
     }
-    config.baseline = input.baseline;
+    config.resolveFrom = input.resolveFrom;
   }
+  const minDocuments = integer("minDocuments");
+  if (minDocuments !== undefined) config.minDocuments = minDocuments;
+  const minStylesheets = integer("minStylesheets");
+  if (minStylesheets !== undefined) config.minStylesheets = minStylesheets;
+
+  const baseline = str("baseline");
+  if (baseline !== undefined) config.baseline = baseline;
   if (input.format !== undefined) {
     config.format = parseFormat(input.format, display);
   }

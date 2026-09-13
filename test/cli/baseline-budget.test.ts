@@ -21,23 +21,22 @@ describe("cssert baseline", () => {
     expect((await sb.run(["baseline", "wat"])).code).toBe(2);
   });
 
-  it("creates a baseline that check applies automatically", async () => {
+  it("freezes only the findings that fail the check, and check applies them", async () => {
     expect((await sb.run(["check", ...base])).code).toBe(1);
 
     const create = await sb.run(["baseline", "create", ...base]);
     expect(create.code).toBe(0);
     expect(create.stdout).toContain(".cssert/baseline.json");
-    expect(create.stdout).toContain("3 finding(s) frozen");
+    expect(create.stdout).toContain("2 finding(s) frozen, 1 not failing the check left out");
     const baseline = JSON.parse(sb.read(".cssert/baseline.json"));
     expect(baseline.entries).toEqual([
       { className: "old-1", kind: "missing" },
       { className: "old-2", kind: "missing" },
-      { className: "text-{{ color }}", kind: "dynamic-suspect" },
     ]);
 
     const check = await sb.run(["check", ...base]);
     expect(check.code).toBe(0);
-    expect(check.stdout).toContain("3 suppressed by baseline");
+    expect(check.stdout).toContain("2 suppressed by baseline");
 
     // A new missing class still fails.
     sb.write("templates/new.html", `<p class="brand-new">`);
@@ -47,12 +46,67 @@ describe("cssert baseline", () => {
     expect(again.stdout).not.toContain("old-1");
   });
 
-  it("writes to a custom --baseline path and requires it to exist for check", async () => {
+  it("freezes dynamic-suspect findings with --fail-on-dynamic or --kind all", async () => {
+    const dynamic = { className: "text-{{ color }}", kind: "dynamic-suspect" };
+
+    await sb.run(["baseline", "create", ...base, "--fail-on-dynamic"]);
+    expect(JSON.parse(sb.read(".cssert/baseline.json")).entries).toContainEqual(dynamic);
+
+    await sb.run(["baseline", "create", ...base, "--kind", "all"]);
+    expect(JSON.parse(sb.read(".cssert/baseline.json")).entries).toContainEqual(dynamic);
+
+    await sb.run(["baseline", "create", ...base, "--kind", "dynamic-suspect"]);
+    expect(JSON.parse(sb.read(".cssert/baseline.json")).entries).toEqual([dynamic]);
+
+    expect((await sb.run(["baseline", "create", ...base, "--kind", "wat"])).code).toBe(2);
+  });
+
+  it("previews without writing with --dry-run", async () => {
+    const create = await sb.run(["baseline", "create", ...base, "--dry-run"]);
+    expect(create.code).toBe(0);
+    expect(create.stdout).toContain("Would write baseline to .cssert/baseline.json");
+    expect(existsSync(join(sb.dir, ".cssert/baseline.json"))).toBe(false);
+
+    await sb.run(["baseline", "create", ...base]);
+    sb.write("templates/bad.html", `<div class="flex old-2">`);
+    const prune = await sb.run(["baseline", "prune", ...base, "--dry-run"]);
+    expect(prune.stdout).toContain("(dry run): 1 resolved, 1 remaining");
+    expect(JSON.parse(sb.read(".cssert/baseline.json")).entries).toHaveLength(2);
+  });
+
+  it("writes to a custom --baseline path, tolerating its absence until created", async () => {
     const custom = ["--baseline", "ci/known.json"];
-    expect((await sb.run(["check", ...base, ...custom])).code).toBe(2);
+    const before = await sb.run(["check", ...base, ...custom]);
+    expect(before.code).toBe(1); // the findings, not a usage error
+    expect(before.stderr).toContain("no baseline at ci/known.json");
+    expect((await sb.run(["check", ...base, ...custom, "--require-baseline"])).code).toBe(2);
+
     expect((await sb.run(["baseline", "create", ...base, ...custom])).code).toBe(0);
     expect(existsSync(join(sb.dir, "ci/known.json"))).toBe(true);
     expect((await sb.run(["check", ...base, ...custom])).code).toBe(0);
+    expect((await sb.run(["check", ...base, ...custom, "--require-baseline"])).code).toBe(0);
+  });
+
+  it("ignores the baseline with --no-baseline and an empty --baseline", async () => {
+    await sb.run(["baseline", "create", ...base]);
+    expect((await sb.run(["check", ...base])).code).toBe(0);
+    expect((await sb.run(["check", ...base, "--no-baseline"])).code).toBe(1);
+    expect((await sb.run(["check", ...base, "--baseline", ""])).code).toBe(1);
+    expect((await sb.run(["check", ...base, "--no-baseline", "--require-baseline"])).code).toBe(2);
+  });
+
+  it("continues when a config-declared baseline does not exist yet", async () => {
+    sb.write(
+      "cssert.config.json",
+      JSON.stringify({
+        css: ["dist/app.css"],
+        html: ["templates/*.html"],
+        baseline: ".cssert/baseline.json",
+      }),
+    );
+    const res = await sb.run(["check"]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('run "cssert baseline create"');
   });
 
   it("reads the baseline path from the config file", async () => {
@@ -74,7 +128,7 @@ describe("cssert baseline", () => {
     sb.write("templates/bad.html", `<div class="flex old-2">`);
     const prune = await sb.run(["baseline", "prune", ...base]);
     expect(prune.code).toBe(0);
-    expect(prune.stdout).toContain("2 resolved, 1 remaining");
+    expect(prune.stdout).toContain("1 resolved, 1 remaining");
     expect(prune.stdout).toContain("- old-1 (missing)");
     expect(JSON.parse(sb.read(".cssert/baseline.json")).entries).toEqual([
       { className: "old-2", kind: "missing" },

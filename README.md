@@ -30,6 +30,23 @@ HTML, and reports the difference. It has no dependency on any build tool,
 framework internals or browser, so it works the same for Tailwind v3, Tailwind
 v4, UnoCSS, PurgeCSS output and hand-written CSS.
 
+### What this finds in practice
+
+Reported from a Django + Tailwind v4 + daisyUI codebase (35 templates, 27
+rendered pages) that adopted cssert in CI:
+
+- **The first run found 7 dead class names used in about 200 places** — leftovers
+  from a daisyUI v4 → v5 upgrade that nobody had noticed, because every page
+  still rendered and only looked slightly wrong.
+- **Two past incidents were reproduced and both failed the check**: a
+  hand-written `.mention` rule deleted from `style.css`, and a Prettier run that
+  reflowed a template until `tooltip-right menu-active` became
+  `tooltip-rightmenu-active`.
+- **The dev-server trap is caught by the same mechanism**: add a new template
+  while a Tailwind dev server is running, and the classes that appear for the
+  first time in that file are never scanned. The page works for whoever has the
+  old stylesheet cached and breaks in production.
+
 ## Quick start
 
 ```sh
@@ -53,6 +70,34 @@ Without installing, run `npx @cssert/cli check ...`.
 Exit codes: `0` no violations, `1` violations, `2` usage or config error,
 `3` internal error.
 
+## What a green run does and does not prove
+
+`✓ no missing classes` is a statement about the files cssert was given, and
+only about *existence*. Quote this section in your own CI design notes.
+
+**A green run proves**, for every document you passed in: every literal class
+in a scanned attribute is defined by at least one selector in the stylesheets
+you passed in.
+
+**A green run does not prove:**
+
+- **That the rule actually applies.** A class can exist and still lose to
+  another selector's specificity, sit behind a media query that never matches,
+  or declare the wrong value. cssert compares names, not computed style.
+- **That the class is on the right element.** A `class` attribute you forgot
+  to write is not a missing class; it is missing markup, and nothing here sees
+  it.
+- **That the pages you did not render are fine.** A template that no scanned
+  document exercises is simply not part of the result. The summary reports the
+  document count for this reason, `--min-documents` turns a truncated input set
+  into a failure, and the count of documents that still contain unresolved
+  class expressions says how much of the input could not be resolved.
+- **That both branches were taken.** Rendering `{% if expired %}` once only
+  covers the branch your fixture data happened to hit.
+
+For "this class exists *and* resolves to this value", use
+[`expectClass`](#explicit-assertions).
+
 ## Server-side rendering: check rendered pages, not templates
 
 cssert's main audience is server-rendered applications, where the CSS build
@@ -74,24 +119,48 @@ attributes is reported as *dynamic-suspect* instead of verified.
 ```
 cssert check [options]
 
-  --css <glob>           Built CSS files (repeatable, comma-separated allowed)
-  --html <glob>          HTML documents to check (repeatable)
-  --config <path>        Config file (default: cssert.config.{ts,js,mjs,json} in cwd)
-  --baseline <path>      Baseline file (default: .cssert/baseline.json when present)
-  --format <fmt>         human | json | github | sarif (default: human)
-  --output <path>        Write the report to a file instead of stdout
-  --attributes <list>    HTML attributes to scan (default: class)
-  --ignore <pattern>     Extra class or /regex/ to ignore (repeatable)
-  --allow <pattern>      Class or /regex/ that may be absent from the CSS (repeatable)
-  --strict-parse         Treat CSS parse warnings as errors
-  --max-warnings <n>     Fail when parse warnings exceed <n>
-  --fail-on-dynamic      Also fail when dynamic-suspect tokens are found
-  --no-color             Disable colours
+  --css <glob>              Built CSS files (repeatable, comma-separated allowed)
+  --html <glob>             HTML documents to check (repeatable)
+  --config <path>           Config file (default: cssert.config.{ts,js,mjs,json} in cwd)
+  --root <dir>              Base directory for every relative path
+  --baseline <path>         Baseline file (default: .cssert/baseline.json when present)
+  --no-baseline             Ignore the baseline for this run
+  --require-baseline        Fail when the baseline file does not exist
+  --format <fmt>            human | json | github | sarif (default: human)
+  --annotate-occurrences    github: annotate every usage, not one per class
+  --output <path>           Write the report to a file instead of stdout
+  --attributes <list>       HTML attributes to scan (default: class)
+  --ignore <pattern>        Extra class or /regex/ to ignore (repeatable)
+  --allow <pattern>         Class or /regex/ that may be absent from the CSS (repeatable)
+  --hook <pattern>          Class that is expected to have no styles (repeatable)
+  --strict-parse            Treat CSS parse warnings as errors
+  --max-warnings <n>        Fail when parse warnings exceed <n>
+  --fail-on-dynamic         Also fail when dynamic-suspect tokens are found
+  --min-documents <n>       Fail when fewer than <n> HTML documents were scanned
+  --min-stylesheets <n>     Fail when fewer than <n> stylesheets were scanned
+  --no-color                Disable colours
 ```
 
 A class counts as defined when it appears in **any** selector of any
 stylesheet, including as an ancestor (`.group:hover .foo` defines `group`),
 so Tailwind's `group`/`peer` markers are not false positives.
+
+### Where relative paths point
+
+Paths **in a config file** are resolved against the directory containing that
+config file, the way eslint, vitest and tsc resolve theirs. Paths **passed as
+flags** are resolved against the working directory. So the same config gives
+the same result from anywhere, which matters when `node_modules` lives in a
+subdirectory:
+
+```sh
+cssert check                                        # from the repo root
+cd frontend && cssert check --config ../cssert.config.mjs   # same result
+```
+
+Override the base with `root` in the config (relative to the config file) or
+`--root` on the command line (relative to cwd; applies to flags too). Set
+`resolveFrom: "cwd"` to get the pre-0.2 behaviour back.
 
 ### `cssert baseline create | prune`
 
@@ -104,9 +173,48 @@ npx @cssert/cli check ...        # .cssert/baseline.json is applied automaticall
 npx @cssert/cli baseline prune   # drop entries that have been fixed
 ```
 
-Commit `.cssert/baseline.json` and shrink it over time. Entries are keyed by
-class name, so moving a usage to another template does not create a new
-finding.
+```
+  --kind <k>     failing (default) | missing | dynamic-suspect | all
+  --dry-run      Report what would change without writing the file
+```
+
+#### What to freeze, and what not to
+
+**A baseline is the list of debt you intend to pay off**, so only put things in
+it that would otherwise fail the build. That is what `--kind failing` (the
+default) does: `missing` findings, plus `dynamic-suspect` ones only when you
+run with `--fail-on-dynamic`.
+
+Freezing dynamic-suspect findings otherwise makes the file rot. The key of such
+an entry is the whole template expression:
+
+```json
+{ "className": "{% if inv.status == 'active' %}badge-info{% else %}badge-ghost{% endif %}",
+  "kind": "dynamic-suspect" }
+```
+
+Edit one character of that condition and the key changes: the entry stops
+matching and a stale line stays behind. The fix for those findings is to render
+the page, not to freeze the expression.
+
+#### Recommended first run
+
+1. `cssert check` — look at the real list before freezing anything.
+2. `cssert baseline create` — freeze what fails, and commit
+   `.cssert/baseline.json` in its own commit so the diff is reviewable.
+3. Fix classes in batches. After each batch, `cssert baseline prune` drops the
+   entries that no longer occur and prints `N resolved, M remaining`; commit
+   that alongside the fix. `--dry-run` shows the same summary without writing.
+4. When the file reaches zero entries, delete it and add `--require-baseline`
+   only if you want the absence itself to be an error.
+
+A baseline that does not exist yet is not an error: cssert notes it on stderr
+and continues, so you can write the config before you freeze anything. Use
+`--no-baseline` for a one-off run that shows everything, and
+`--require-baseline` in CI if a missing file should fail.
+
+Entries are keyed by class name and kind, so moving a usage to another template
+does not create a new finding.
 
 ### `cssert budget`
 
@@ -133,15 +241,28 @@ export default defineConfig({
   html: ["build/rendered/**/*.html", "templates/**/*.html"],
   ignore: [/^js-/, "legacy-banner"],
   allow: [],
+  hooks: ["sidebar-collapse-tooltip"],   // queried from JS; correctly has no styles
   attributes: ["class", ":class"],
   baseline: ".cssert/baseline.json",
+  minDocuments: 27,                      // a truncated artefact must not pass
   budget: { snapshot: ".cssert/budget.json", maxDrop: "10%" },
+  // root: "..",                         // rebase this file's relative paths
+  // resolveFrom: "cwd",                 // pre-0.2 resolution
 });
 ```
 
 Command-line flags override the config file. In JSON configs, strings of the
 form `"/^js-/"` are treated as regular expressions. TypeScript configs load
 natively on Node 22.18+/24+; on older runtimes install `jiti` or use `.mjs`.
+
+`ignore`, `allow` and `hooks` all keep a class out of the report and differ in
+what they record:
+
+| key | meaning |
+| --- | --- |
+| `ignore` | Not cssert's business (another library owns it, a script toggles it). Dropped before the comparison. |
+| `allow` | Known to be absent, tolerated for now. |
+| `hooks` | A script/test handle with no styling. Absence from the CSS is the *correct* state. |
 
 Default ignore patterns (extend with `ignore`, disable with
 `useDefaultIgnore: false`): `js-*`, `is-*`, `has-*`, `active`, `disabled`,
@@ -170,6 +291,21 @@ GitHub Actions annotations and SARIF for code scanning:
     sarif_file: cssert.sarif
 ```
 
+`--format github` emits **one annotation per class**, anchored at the first
+occurrence, with the remaining count in the message
+(`… is not defined in any stylesheet (and 65 other places).`). GitHub displays
+only a limited number of annotations per check run, and the first run on an
+existing project — when the report is longest — is exactly when one noisy class
+would otherwise crowd out every other finding. Pass `--annotate-occurrences`
+to annotate every usage instead. The human format always lists every
+occurrence.
+
+When the HTML and the CSS are produced by different jobs, the checking job
+receives both as artefacts — and an artefact that failed to download leaves an
+empty directory. `--min-documents` makes that a failure instead of a green run;
+see the [Django recipe](docs/recipes/django.md#5-github-actions) for a complete
+three-job workflow.
+
 ## Library usage
 
 ### Deriving findings
@@ -181,7 +317,17 @@ const result = audit({
   stylesheets: [{ path: "dist/app.css", css }],
   documents: [{ path: "index.html", html }],
 });
-result.findings; // [{ className, kind: "missing" | "dynamic-suspect", occurrences }]
+result.findings; // [{ className, kind: "missing" | "dynamic-suspect", occurrences, sources }]
+```
+
+Label your documents with `source` and each finding reports the distinct labels
+it was seen under. The CLI labels every document with the input glob that
+matched it, so a finding whose `sources` contains only your template glob is a
+page you never rendered:
+
+```sh
+cssert check --html "build/rendered/**/*.html,templates/**/*.html" --format json \
+  | jq '.findings[] | select(.sources == ["templates/**/*.html"]) | .className'
 ```
 
 ### Explicit assertions
@@ -238,6 +384,27 @@ comparable.
 - Running a browser or doing visual regression
 - Linting, formatting or rewriting CSS
 - Verifying framework utility values
+
+## Upgrading from 0.1
+
+Four defaults changed. All four are about being usable rather than correct in
+the abstract; each has an opt-out.
+
+| Change | Restore the old behaviour |
+| --- | --- |
+| Relative paths in a config file resolve against the config file's directory, not cwd | `resolveFrom: "cwd"` in the config |
+| `--format github` emits one annotation per class, not per occurrence | `--annotate-occurrences` |
+| A baseline file that does not exist is a note on stderr, not exit 2 | `--require-baseline` |
+| `baseline create` freezes only the kinds that fail the check | `--kind all` |
+
+Check the first one before you upgrade: if your config file is not at the
+directory you run cssert from, its globs now point somewhere else. Run
+`cssert check` once and confirm the scanned document count is unchanged.
+
+Additions: `root` / `--root`, `--no-baseline`, `--min-documents`,
+`--min-stylesheets`, `hooks` / `--hook`, `baseline --kind` / `--dry-run`,
+`sources` on JSON findings, `documentsWithDynamic` in the summary, and
+`--version` now naming the package.
 
 ## Development
 

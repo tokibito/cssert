@@ -33,7 +33,13 @@ const report: Report = {
     },
     { code: "selector-parse", message: "bad selector" },
   ],
-  stats: { documents: 128, stylesheets: 3, cssClasses: 400, htmlClasses: 120 },
+  stats: {
+    documents: 128,
+    stylesheets: 3,
+    cssClasses: 400,
+    htmlClasses: 120,
+    documentsWithDynamic: 0,
+  },
   baseline: { path: ".cssert/baseline.json", suppressed: 4 },
 };
 
@@ -67,7 +73,13 @@ describe("formatHuman", () => {
     const empty: Report = {
       findings: [],
       warnings: [],
-      stats: { documents: 2, stylesheets: 1, cssClasses: 10, htmlClasses: 5 },
+      stats: {
+        documents: 2,
+        stylesheets: 1,
+        cssClasses: 10,
+        htmlClasses: 5,
+        documentsWithDynamic: 0,
+      },
     };
     expect(formatHuman(empty)).toBe(
       "\n  ✓ no missing classes  ·  scanned 2 document(s) / 1 stylesheet(s)\n",
@@ -79,7 +91,13 @@ describe("formatHuman", () => {
     const dyn: Report = {
       findings: [{ className: "{{ x }}", kind: "dynamic-suspect", occurrences: [] }],
       warnings: [],
-      stats: { documents: 1, stylesheets: 1, cssClasses: 1, htmlClasses: 1 },
+      stats: {
+        documents: 1,
+        stylesheets: 1,
+        cssClasses: 1,
+        htmlClasses: 1,
+        documentsWithDynamic: 0,
+      },
     };
     const out = formatHuman(dyn, { color: true });
     expect(out).toContain("\u001b[33m0 missing, 1 dynamic-suspect");
@@ -96,8 +114,10 @@ describe("formatJson", () => {
       warnings: 2,
       documents: 128,
       stylesheets: 3,
+      documentsWithDynamic: 0,
       suppressedByBaseline: 4,
     });
+    expect(json.errors).toEqual([]);
     expect(JSON.parse(formatJson(report))).toEqual(json);
     expect(formatJson(report).endsWith("\n")).toBe(true);
   });

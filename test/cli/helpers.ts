@@ -9,6 +9,8 @@ export interface Sandbox {
   write(relative: string, content: string): string;
   read(relative: string): string;
   run(argv: string[], env?: Record<string, string>): Promise<RunResult>;
+  /** Run with the working directory set to `relative` inside the sandbox. */
+  runIn(relative: string, argv: string[], env?: Record<string, string>): Promise<RunResult>;
 }
 
 export interface RunResult {
@@ -35,11 +37,14 @@ export function sandbox(): Sandbox {
     read(relative) {
       return readFileSync(join(dir, relative), "utf8");
     },
-    async run(argv, env = {}) {
+    run(argv, env = {}) {
+      return this.runIn(".", argv, env);
+    },
+    async runIn(relative, argv, env = {}) {
       let stdout = "";
       let stderr = "";
       const ctx: CliContext = {
-        cwd: dir,
+        cwd: join(dir, relative),
         stdout: {
           write(t: string) {
             stdout += t;
