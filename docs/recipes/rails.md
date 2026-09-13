@@ -71,12 +71,12 @@ With `cssbundling-rails`/Vite, run the production build (`yarn build:css`,
 ## 3. Check
 
 ```sh
-npx cssert check --css "app/assets/builds/**/*.css" --html "build/rendered/**/*.html"
+npx @cssert/cli check --css "app/assets/builds/**/*.css" --html "build/rendered/**/*.html"
 ```
 
 ```ts
 // cssert.config.ts
-import { defineConfig } from "cssert";
+import { defineConfig } from "@cssert/cli";
 
 export default defineConfig({
   css: ["app/assets/builds/**/*.css"],
@@ -91,7 +91,7 @@ export default defineConfig({
 - run: bin/rails db:prepare db:seed
 - run: bin/rails tailwindcss:build
 - run: bin/rails cssert:dump
-- run: npx cssert check --format github
+- run: npx @cssert/cli check --format github
 ```
 
 ## Tips

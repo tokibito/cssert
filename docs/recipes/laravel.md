@@ -82,12 +82,12 @@ package views you publish or use.
 ## 3. Check
 
 ```sh
-npx cssert check --css "public/build/assets/*.css" --html "build/rendered/**/*.html"
+npx @cssert/cli check --css "public/build/assets/*.css" --html "build/rendered/**/*.html"
 ```
 
 ```ts
 // cssert.config.ts
-import { defineConfig } from "cssert";
+import { defineConfig } from "@cssert/cli";
 
 export default defineConfig({
   css: ["public/build/assets/*.css"],
@@ -103,7 +103,7 @@ export default defineConfig({
 - run: php artisan migrate --seed
 - run: npm ci && npm run build
 - run: php artisan cssert:dump
-- run: npx cssert check --format github
+- run: npx @cssert/cli check --format github
 ```
 
 ## Tips

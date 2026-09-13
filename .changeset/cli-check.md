@@ -1,5 +1,5 @@
 ---
-"cssert": minor
+"@cssert/cli": minor
 ---
 
 Add the `cssert check` command with human and JSON reports, config file

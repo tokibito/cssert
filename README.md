@@ -1,5 +1,7 @@
 # cssert
 
+[![npm](https://img.shields.io/npm/v/%40cssert%2Fcli)](https://www.npmjs.com/package/@cssert/cli)
+
 Contract testing for **built** CSS. cssert compares your compiled stylesheet
 with the HTML that uses it and reports utility classes that went missing from
 the build output.
@@ -31,9 +33,13 @@ v4, UnoCSS, PurgeCSS output and hand-written CSS.
 ## Quick start
 
 ```sh
-npm install --save-dev cssert
+npm install --save-dev @cssert/cli
 npx cssert check --css "dist/**/*.css" --html "build/rendered/**/*.html"
 ```
+
+The package is published as `@cssert/cli` (npm rejects the bare name
+`cssert` as too similar to `assert`); the installed binary is `cssert`.
+Without installing, run `npx @cssert/cli check ...`.
 
 ```
   ✗ lg:my-10          templates/pricing.html:42:18
@@ -93,9 +99,9 @@ The first run on an existing project usually reports many findings. Freeze
 them and fail only on new ones:
 
 ```sh
-npx cssert baseline create --css "dist/**/*.css" --html "build/**/*.html"
-npx cssert check ...        # .cssert/baseline.json is applied automatically
-npx cssert baseline prune   # drop entries that have been fixed
+npx @cssert/cli baseline create --css "dist/**/*.css" --html "build/**/*.html"
+npx @cssert/cli check ...        # .cssert/baseline.json is applied automatically
+npx @cssert/cli baseline prune   # drop entries that have been fixed
 ```
 
 Commit `.cssert/baseline.json` and shrink it over time. Entries are keyed by
@@ -110,9 +116,9 @@ records the number of classes and the gzip size of the build and fails when
 they drop by more than the allowed amount:
 
 ```sh
-npx cssert budget --css "dist/**/*.css"                  # first run writes .cssert/budget.json
-npx cssert budget --css "dist/**/*.css" --max-drop 10%   # later runs compare against it
-npx cssert budget --css "dist/**/*.css" --update         # accept the current size
+npx @cssert/cli budget --css "dist/**/*.css"                  # first run writes .cssert/budget.json
+npx @cssert/cli budget --css "dist/**/*.css" --max-drop 10%   # later runs compare against it
+npx @cssert/cli budget --css "dist/**/*.css" --update         # accept the current size
 ```
 
 ## Configuration
@@ -120,7 +126,7 @@ npx cssert budget --css "dist/**/*.css" --update         # accept the current si
 `cssert.config.ts` (or `.js`, `.mjs`, `.json`) in the working directory:
 
 ```ts
-import { defineConfig } from "cssert";
+import { defineConfig } from "@cssert/cli";
 
 export default defineConfig({
   css: ["dist/**/*.css"],
@@ -156,9 +162,9 @@ inside them.
 GitHub Actions annotations and SARIF for code scanning:
 
 ```yaml
-- run: npx cssert check --format github
+- run: npx @cssert/cli check --format github
 # or
-- run: npx cssert check --format sarif --output cssert.sarif || true
+- run: npx @cssert/cli check --format sarif --output cssert.sarif || true
 - uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: cssert.sarif
@@ -169,7 +175,7 @@ GitHub Actions annotations and SARIF for code scanning:
 ### Deriving findings
 
 ```ts
-import { audit, loadStylesheet } from "cssert";
+import { audit, loadStylesheet } from "@cssert/cli";
 
 const result = audit({
   stylesheets: [{ path: "dist/app.css", css }],
@@ -184,7 +190,7 @@ For classes that cannot be derived from HTML: safelisted classes, classes
 built at runtime, and your own design tokens.
 
 ```ts
-import { expectClass, loadStylesheet } from "cssert";
+import { expectClass, loadStylesheet } from "@cssert/cli";
 
 const sheet = loadStylesheet(css);
 

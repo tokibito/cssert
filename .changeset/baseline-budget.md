@@ -1,5 +1,5 @@
 ---
-"cssert": minor
+"@cssert/cli": minor
 ---
 
 Add `cssert baseline create|prune` to freeze existing findings and

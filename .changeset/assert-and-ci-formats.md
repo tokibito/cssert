@@ -1,5 +1,5 @@
 ---
-"cssert": minor
+"@cssert/cli": minor
 ---
 
 Add the `expectClass` assertion API (`cssert/assert`), GitHub Actions and

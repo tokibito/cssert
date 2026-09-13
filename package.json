@@ -1,5 +1,5 @@
 {
-  "name": "cssert",
+  "name": "@cssert/cli",
   "version": "0.0.1",
   "type": "module",
   "description": "Contract testing for built CSS. Detect utility classes that went missing from your build output.",
@@ -23,7 +23,7 @@
     "url": "https://github.com/tokibito/cssert/issues"
   },
   "bin": {
-    "cssert": "./dist/cli/index.js"
+    "cssert": "dist/cli/index.js"
   },
   "exports": {
     ".": "./dist/index.js",
@@ -35,6 +35,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },

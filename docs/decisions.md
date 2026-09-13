@@ -168,3 +168,13 @@ The Django/Rails/Laravel recipes all dump rendered HTML via the framework's
 own request machinery rather than checking templates. Rendering resolves
 `{% if %}`/`<%= %>` inside class attributes, which is exactly what the
 dynamic-suspect classification cannot verify.
+
+## D24. The package is published as `@cssert/cli`
+
+`npm publish` of the bare name `cssert` is rejected with 403 by the registry's
+typosquat protection ("too similar to existing packages assert, cssesc"). The
+name is not taken; it is unpublishable. Scoped names are exempt from that
+check and the `@cssert` organisation is already owned, so the package lives at
+`@cssert/cli` with `publishConfig.access: public`. The binary, the config
+file name and all report output keep the name `cssert`. Future sub-packages
+(`@cssert/vitest`, …) sit next to it as planned.

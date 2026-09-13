@@ -8,7 +8,7 @@ export function readVersion(): string {
         name?: string;
         version?: string;
       };
-      if (pkg.name === "cssert" && typeof pkg.version === "string") return pkg.version;
+      if (pkg.name === "@cssert/cli" && typeof pkg.version === "string") return pkg.version;
     } catch {
       // try the next candidate
     }

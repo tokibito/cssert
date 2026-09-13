@@ -43,7 +43,7 @@ export interface CssertConfig {
  *
  * @example
  * ```ts
- * import { defineConfig } from "cssert";
+ * import { defineConfig } from "@cssert/cli";
  * export default defineConfig({ css: ["dist/**\/*.css"], html: ["build/**\/*.html"] });
  * ```
  */

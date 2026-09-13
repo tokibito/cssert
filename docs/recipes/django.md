@@ -77,14 +77,14 @@ npx @tailwindcss/cli -i static/src/app.css -o static/dist/app.css --minify
 ## 3. Check
 
 ```sh
-npx cssert check --css "static/dist/**/*.css" --html "build/rendered/**/*.html"
+npx @cssert/cli check --css "static/dist/**/*.css" --html "build/rendered/**/*.html"
 ```
 
 Or with a config file at the project root:
 
 ```ts
 // cssert.config.ts
-import { defineConfig } from "cssert";
+import { defineConfig } from "@cssert/cli";
 
 export default defineConfig({
   css: ["static/dist/**/*.css"],
@@ -99,7 +99,7 @@ export default defineConfig({
 - run: python manage.py migrate && python manage.py loaddata fixtures/demo.json
 - run: python manage.py dump_rendered
 - run: npx @tailwindcss/cli -i static/src/app.css -o static/dist/app.css --minify
-- run: npx cssert check --format github
+- run: npx @cssert/cli check --format github
 ```
 
 ## Tips
@@ -113,7 +113,7 @@ export default defineConfig({
   safelist and assert them explicitly:
 
   ```ts
-  import { expectClass, loadStylesheet } from "cssert";
+  import { expectClass, loadStylesheet } from "@cssert/cli";
   const sheet = loadStylesheet(readFileSync("static/dist/app.css", "utf8"));
   for (const level of ["info", "warning", "error"]) {
     expectClass(sheet, `alert-${level}`).toExist();
