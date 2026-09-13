@@ -1,6 +1,6 @@
 {
   "name": "@cssert/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "Contract testing for built CSS. Detect utility classes that went missing from your build output.",
   "keywords": [
