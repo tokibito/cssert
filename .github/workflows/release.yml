@@ -40,6 +40,9 @@ jobs:
             echo "@cssert/cli@$version is already published"
             exit 0
           fi
-          npm publish
+          npm --version
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then echo "OIDC token request URL: available"; else echo "OIDC token request URL: MISSING"; fi
+          npm publish --loglevel verbose 2>&1 | grep -iE "oidc|provenance|ENEEDAUTH|need auth|E40|\+ @cssert|npm verb (publish|http fetch)" || true
+          npm view "@cssert/cli@$version" version >/dev/null 2>&1 || { echo "publish did not land"; exit 1; }
           pnpm changeset tag
           git push --tags
