@@ -251,8 +251,10 @@ pnpm build           # tsup → dist/
 ```
 
 Fixtures under `test/fixtures/` are real Tailwind v3/v4 and UnoCSS builds;
-`scripts/build-fixtures.sh` regenerates them. Design decisions beyond the
-specification are recorded in [docs/decisions.md](docs/decisions.md).
+`scripts/build-fixtures.sh` regenerates them. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, [docs/decisions.md](docs/decisions.md)
+for design decisions beyond the specification, and
+[docs/releasing.md](docs/releasing.md) for how versions reach npm.
 
 ## Name
 
