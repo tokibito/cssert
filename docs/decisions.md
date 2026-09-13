@@ -120,7 +120,9 @@ CI installs small.
 
 `--css`/`--html` patterns that match nothing exit with code 2 instead of
 reporting "no missing classes". A silently empty check is exactly the kind of
-false reassurance principle 5 forbids.
+false reassurance principle 5 forbids. (Extended in D30: a glob that matches
+*fewer* files than expected is just as silent, which is what `--min-documents`
+is for.)
 
 ## D18. Baselines are keyed by class name and kind, not by position
 
@@ -131,10 +133,11 @@ one. Keying by file/line would make baselines churn on every unrelated edit.
 
 ## D19. An explicitly configured baseline must exist; the default may not
 
-`check` silently skips the default `.cssert/baseline.json` when it is absent,
-so first-time users are not forced to create one. A path given via
-`--baseline` or the config file is a statement of intent, and a missing file
-there is a usage error (exit 2) rather than a silent no-op.
+**Superseded by D31 in 0.2.0.** `check` silently skips the default
+`.cssert/baseline.json` when it is absent, so first-time users are not forced
+to create one. A path given via `--baseline` or the config file is a statement
+of intent, and a missing file there is a usage error (exit 2) rather than a
+silent no-op.
 
 ## D20. Budget compares totals, only shrinkage fails, `--update` always passes
 
@@ -156,11 +159,13 @@ several conditions, narrow with `under()` first.
 
 ## D22. CI formats emit one entry per occurrence
 
-GitHub workflow commands and SARIF results are emitted per occurrence, not
-per class, so every usage is annotated in the pull request. A finding without
-occurrences (possible when a baseline or ignore list is edited by hand) is
-still emitted once without a location. SARIF carries the class name as a
-partial fingerprint so viewers can group alerts.
+**Amended by D29 in 0.2.0: the GitHub format now folds to one annotation per
+class; SARIF still emits one result per occurrence.** GitHub workflow commands
+and SARIF results are emitted per occurrence, not per class, so every usage is
+annotated in the pull request. A finding without occurrences (possible when a
+baseline or ignore list is edited by hand) is still emitted once without a
+location. SARIF carries the class name as a partial fingerprint so viewers can
+group alerts.
 
 ## D23. Recipes render first, then check
 
@@ -205,3 +210,81 @@ npm CLI (`npm install -g npm@latest`), which implements trusted publishing and
 provenance directly. The step is idempotent: it exits early when the version
 in `package.json` already exists on the registry, and `changeset tag` still
 creates the `@cssert/cli@x.y.z` git tag.
+
+## D28. Config paths resolve against the config file; flags against cwd
+
+Resolving every glob against the working directory made a config file's
+meaning depend on where it was invoked from. In a repository whose npm root is
+a subdirectory, `cd frontend && cssert check --config ../cssert.config.mjs`
+matched nothing and said so in a way that reads like a build problem. eslint,
+vitest and tsc all resolve config-relative, so that is now the default:
+`Roots.config` for values read out of the config file, `Roots.flag` for values
+typed on the command line, where "the file I pointed at from here" is the
+obvious reading. Reported paths are relative to the base that found them, which
+is what makes the output identical from any directory.
+
+`root` in a config file rebases only that file's own paths, because it is a
+statement about the file. `--root` is given at invocation time and so rebases
+flags too. `resolveFrom: "cwd"` restores the 0.1 behaviour for projects that
+depended on it.
+
+## D29. The GitHub format annotates once per class
+
+A check run displays a limited number of annotations. One class used in 85
+places therefore hid every other finding — worst on the first run, when the
+report is longest and the reader has the least context. The annotation is now
+anchored at the first occurrence and carries the remaining count in its text
+("and 65 other places"), so N classes produce N annotations.
+`--annotate-occurrences` restores the old behaviour. The human format still
+lists every occurrence: a terminal has no such cap, and the occurrence list is
+how you find the class.
+
+SARIF is unchanged. Code scanning deduplicates by fingerprint and is built to
+ingest large result sets, so per-occurrence results stay more useful there.
+
+## D30. cssert reports how much it could not verify
+
+`✓ no missing classes` means "no problems in what I was given", and the
+distance between that and "no problems" is the whole risk of an SSR setup: a
+page nobody rendered is silently out of scope. Three things make that visible
+rather than assumed. The summary counts documents that still contain
+unresolved class expressions, so a partly rendered input set says so on a green
+run. `--min-documents`/`--min-stylesheets` turn a truncated input set into
+`report.errors` and exit 1 — an artefact download that produced an empty
+directory must not pass. And findings carry the input glob they were seen
+under (`sources`), so a class that appears only under the template glob is a
+page that was never rendered.
+
+Run-level errors live in `Report.errors` rather than being synthesised as
+findings: they are not about a class, and a baseline must never be able to
+suppress one.
+
+## D31. A missing baseline is a note, not an error
+
+D19 made a configured-but-absent baseline exit 2. That penalised the natural
+order of work — write the config, then freeze the findings — and the first run
+of every new project hit it. Absence now writes one line to stderr and the
+check continues without suppression, which fails *louder* rather than quieter:
+nothing is hidden. `--require-baseline` is there for pipelines that want the
+absence itself to fail, and `--no-baseline` (or an empty path) is the explicit
+"show me everything this time", replacing the workaround of renaming
+`.cssert/` — which used to fail with EISDIR.
+
+## D32. `baseline create` freezes only what fails
+
+A baseline is the list of debt you intend to pay off. Freezing
+dynamic-suspect findings by default put entries in it that could not fail the
+build (without `--fail-on-dynamic`) and that rot: their key is the whole
+template expression, so editing one character of a `{% if %}` condition changes
+the key, the entry stops matching, and a stale line stays behind. The default
+`--kind failing` freezes the kinds that fail under the current options;
+`--kind all` keeps the old behaviour for projects that do run with
+`--fail-on-dynamic`.
+
+## D33. `hooks` is `allow` with a documented reason
+
+A class that a script queries but never styles is not "unchecked" (`ignore`)
+and not "tolerated for now" (`allow`) — its absence from the CSS is correct.
+`hooks` behaves exactly like `allow` and exists so the config file says which
+of the three a given entry is. Deliberately not a new finding kind: reporting
+"this hook now has styles" would change the baseline schema for a rare case.
