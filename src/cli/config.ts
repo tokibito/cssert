@@ -130,6 +130,27 @@ function normalizeConfig(raw: unknown, display: string): CssertConfig {
   if (input.format !== undefined) {
     config.format = parseFormat(input.format, display);
   }
+  if (input.budget !== undefined) {
+    const b = input.budget;
+    if (b === null || typeof b !== "object" || Array.isArray(b)) {
+      throw new CliError(`Config ${display}: "budget" must be an object.`);
+    }
+    const budget: NonNullable<CssertConfig["budget"]> = {};
+    const { snapshot, maxDrop } = b as Record<string, unknown>;
+    if (snapshot !== undefined) {
+      if (typeof snapshot !== "string") {
+        throw new CliError(`Config ${display}: "budget.snapshot" must be a string.`);
+      }
+      budget.snapshot = snapshot;
+    }
+    if (maxDrop !== undefined) {
+      if (typeof maxDrop !== "string" && typeof maxDrop !== "number") {
+        throw new CliError(`Config ${display}: "budget.maxDrop" must be a string like "10%".`);
+      }
+      budget.maxDrop = String(maxDrop);
+    }
+    config.budget = budget;
+  }
   if (input.maxWarnings !== undefined) {
     if (typeof input.maxWarnings !== "number" || !Number.isInteger(input.maxWarnings)) {
       throw new CliError(`Config ${display}: "maxWarnings" must be an integer.`);

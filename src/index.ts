@@ -1,3 +1,25 @@
+export type { Baseline, BaselineEntry } from "./audit/baseline.js";
+export {
+  applyBaseline,
+  createBaseline,
+  parseBaseline,
+  pruneBaseline,
+  serializeBaseline,
+} from "./audit/baseline.js";
+export type {
+  BudgetComparison,
+  BudgetDelta,
+  BudgetMetrics,
+  BudgetSnapshot,
+  MaxDrop,
+} from "./audit/budget.js";
+export {
+  compareBudget,
+  measureStylesheets,
+  parseBudgetSnapshot,
+  parseMaxDrop,
+  serializeBudgetSnapshot,
+} from "./audit/budget.js";
 export type {
   AuditInput,
   AuditResult,

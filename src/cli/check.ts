@@ -1,10 +1,12 @@
 import { parseArgs } from "node:util";
+import { applyBaseline } from "../audit/baseline.js";
 import { audit } from "../audit/derive.js";
 import type { CssertConfig } from "../config.js";
 import { toPattern } from "../config.js";
 import { formatHuman } from "../report/human.js";
 import { formatJson } from "../report/json.js";
 import type { Report, ReportFormat } from "../report/types.js";
+import { DEFAULT_BASELINE_PATH, readBaselineFile } from "./baseline.js";
 import { findConfigFile, loadConfigFile, parseFormat } from "./config.js";
 import { type CliContext, CliError, EXIT, type ExitCode } from "./context.js";
 import { loadFiles, writeOutput } from "./files.js";
@@ -157,8 +159,21 @@ export async function resolveCheckOptions(
   return options;
 }
 
-/** Hook used by the baseline command (M4) to filter findings before reporting. */
-export type ReportTransform = (report: Report, options: CheckOptions, ctx: CliContext) => Report;
+/**
+ * Apply the baseline file to a report. An explicitly configured baseline must
+ * exist; the default path is applied only when present.
+ */
+export function applyBaselineFile(report: Report, options: CheckOptions, ctx: CliContext): Report {
+  const path = options.baseline ?? DEFAULT_BASELINE_PATH;
+  const baseline = readBaselineFile(path, ctx.cwd);
+  if (!baseline) {
+    if (options.baseline !== undefined)
+      throw new CliError(`Baseline not found: ${options.baseline}`);
+    return report;
+  }
+  const { findings, suppressed } = applyBaseline(report.findings, baseline);
+  return { ...report, findings, baseline: { path, suppressed } };
+}
 
 /** Run the audit described by `options` and return the report. */
 export async function runAudit(options: CheckOptions, ctx: CliContext): Promise<Report> {
@@ -202,19 +217,14 @@ export function exitCodeFor(report: Report, options: CheckOptions): ExitCode {
   return EXIT.ok;
 }
 
-export async function checkCommand(
-  argv: string[],
-  ctx: CliContext,
-  transform?: ReportTransform,
-): Promise<ExitCode> {
+export async function checkCommand(argv: string[], ctx: CliContext): Promise<ExitCode> {
   const parsed = parseCheckArgs(argv);
   if (parsed.help) {
     ctx.stdout.write(CHECK_USAGE);
     return EXIT.ok;
   }
   const options = await resolveCheckOptions(parsed.raw, ctx);
-  let report = await runAudit(options, ctx);
-  if (transform) report = transform(report, options, ctx);
+  const report = applyBaselineFile(await runAudit(options, ctx), options, ctx);
 
   const text = renderReport(report, options.format, options.color && options.output === undefined);
   if (options.output !== undefined) {

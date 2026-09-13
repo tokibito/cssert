@@ -73,6 +73,32 @@ the check unless you pass `--fail-on-dynamic`. The best fix is to render your
 templates and check the rendered HTML instead (see recipes below); the second
 best is to make the class list static.
 
+### Adopting cssert in an existing project
+
+The first run on a real project usually reports many findings. Freeze them
+and fail only on new ones:
+
+```sh
+npx cssert baseline create --css "dist/**/*.css" --html "build/**/*.html"
+npx cssert check ...        # .cssert/baseline.json is applied automatically
+npx cssert baseline prune   # drop entries that have been fixed
+```
+
+Commit `.cssert/baseline.json` and shrink it over time.
+
+### Guarding against an emptied build
+
+A misconfigured content path makes Tailwind emit almost nothing, and every
+page still "works" in development because of the browser cache. `cssert budget`
+records the number of classes and the gzip size of the build and fails when
+they drop by more than the allowed amount:
+
+```sh
+npx cssert budget --css "dist/**/*.css"                  # first run writes .cssert/budget.json
+npx cssert budget --css "dist/**/*.css" --max-drop 10%   # later runs compare against it
+npx cssert budget --css "dist/**/*.css" --update         # accept the current size
+```
+
 ## Library usage
 
 ```ts

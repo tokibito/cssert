@@ -121,3 +121,26 @@ CI installs small.
 `--css`/`--html` patterns that match nothing exit with code 2 instead of
 reporting "no missing classes". A silently empty check is exactly the kind of
 false reassurance principle 5 forbids.
+
+## D18. Baselines are keyed by class name and kind, not by position
+
+A baseline entry says "this class is known to be missing", so a second usage
+of the same class in another template is the same known problem, not a new
+one. Keying by file/line would make baselines churn on every unrelated edit.
+`baseline prune` drops entries whose class no longer produces a finding.
+
+## D19. An explicitly configured baseline must exist; the default may not
+
+`check` silently skips the default `.cssert/baseline.json` when it is absent,
+so first-time users are not forced to create one. A path given via
+`--baseline` or the config file is a statement of intent, and a missing file
+there is a usage error (exit 2) rather than a silent no-op.
+
+## D20. Budget compares totals, only shrinkage fails, `--update` always passes
+
+The budget guards against a build that silently emptied. It compares total
+distinct classes and total gzip size against the snapshot; growth never fails
+and raw byte size is reported but never enforced (minifier changes would make
+it noisy). `--max-drop` accepts `10%` (both metrics) or `25` (absolute class
+count). `--update` records the new measurement and exits 0 even when the drop
+exceeded the threshold, because the operator is explicitly accepting it.

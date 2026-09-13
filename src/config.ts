@@ -29,6 +29,13 @@ export interface CssertConfig {
   maxWarnings?: number;
   /** Also fail (exit 1) when dynamic-suspect tokens are found. Default false. */
   failOnDynamic?: boolean;
+  /** Settings for `cssert budget`. */
+  budget?: {
+    /** Snapshot file. Default `.cssert/budget.json`. */
+    snapshot?: string;
+    /** Allowed drop, e.g. `"10%"` or `"25"` (classes). Default `"10%"`. */
+    maxDrop?: string;
+  };
 }
 
 /**

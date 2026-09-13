@@ -1,3 +1,5 @@
+import { baselineCommand } from "./baseline.js";
+import { budgetCommand } from "./budget.js";
 import { checkCommand } from "./check.js";
 import { type CliContext, CliError, defaultContext, EXIT, type ExitCode } from "./context.js";
 
@@ -13,16 +15,10 @@ Run "cssert <command> --help" for command options.
 
 type Command = (argv: string[], ctx: CliContext) => Promise<ExitCode>;
 
-const notYet =
-  (name: string): Command =>
-  async () => {
-    throw new CliError(`"cssert ${name}" is not available in this version.`);
-  };
-
 export const COMMANDS: Record<string, Command> = {
   check: (argv, ctx) => checkCommand(argv, ctx),
-  baseline: notYet("baseline"),
-  budget: notYet("budget"),
+  baseline: (argv, ctx) => baselineCommand(argv, ctx),
+  budget: (argv, ctx) => budgetCommand(argv, ctx),
 };
 
 /**
